@@ -7,8 +7,8 @@ WORKDIR /app
 # Копируем package files для лучшего кэширования
 COPY package*.json ./
 
-# Устанавливаем зависимости
-RUN npm ci --only=production
+# Устанавливаем ВСЕ зависимости (включая dev для сборки)
+RUN npm ci
 
 # Копируем исходный код
 COPY . .
