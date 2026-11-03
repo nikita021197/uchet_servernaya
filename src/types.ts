@@ -1,33 +1,33 @@
 export interface Employee {
   id: string;
-  fullName: string;
-  isActive: boolean;
-  createdAt: string;
+  full_name: string;
+  is_active: number;
+  created_at: string;
 }
 
 export interface Equipment {
   id: string;
-  inventoryNumber: string;
-  broughtBy: string; // employee id
-  takenBy: string | null; // employee id
-  broughtAt: string; // ISO date
-  takenAt: string | null; // ISO date
+  inventory_number: string;
+  brought_by: string;
+  taken_by: string | null;
+  brought_at: string;
+  taken_at: string | null;
   comment: string;
-  glpiTicket: string;
-  createdAt: string;
-  updatedAt: string;
+  glpi_ticket: string;
+  created_at: string;
+  updated_at: string;
   status: 'active' | 'taken' | 'overdue';
+  brought_by_name?: string;
+  taken_by_name?: string;
 }
 
 export interface AuditLog {
   id: string;
   timestamp: string;
   action: string;
-  objectType: string;
-  objectId: string;
+  object_type: string;
+  object_id: string;
   details: string;
-  oldValue?: string;
-  newValue?: string;
 }
 
 export interface AppStats {
