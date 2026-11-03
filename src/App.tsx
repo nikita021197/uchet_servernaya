@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { ThemeMode, Notification } from './types';
-import { getTheme, setTheme, initializeStore } from './store';
+import { getTheme, setTheme } from './store';
 import Dashboard from './pages/Dashboard';
 import EquipmentList from './pages/EquipmentList';
 import EquipmentNew from './pages/EquipmentNew';
@@ -29,9 +29,7 @@ function AppContent() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const location = useLocation();
 
-  useEffect(() => {
-    initializeStore();
-  }, []);
+  // App initialized
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');

@@ -16,26 +16,32 @@ COPY . .
 # Собираем приложение
 RUN npm run build
 
-# Stage 2: Production image с nginx
-FROM nginx:alpine
+# Stage 2: Production image с backend
+FROM node:20-alpine
 
-# Копируем nginx конфигурацию
-COPY nginx.conf /etc/nginx/nginx.conf
+WORKDIR /app
 
-# Копируем собранные файлы из builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Устанавливаем только production зависимости
+COPY package*.json ./
+RUN npm ci --only=production
 
-# Создаем директорию для логов
-RUN mkdir -p /var/log/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /usr/share/nginx/html
+# Копируем backend
+COPY server/ ./server/
+
+# Копируем собранный frontend
+COPY --from=builder /app/dist ./dist
+
+# Создаем директорию для данных
+RUN mkdir -p /app/data
 
 # Expose порт
 EXPOSE 4321
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:4321/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:4321/health || exit 1
 
-# Запускаем nginx в foreground режиме
-CMD ["nginx", "-g", "daemon off;"]
+# Запускаем backend сервер
+ENV PORT=4321
+ENV DB_PATH=/app/data/app.db
+CMD ["node", "server/index.js"]

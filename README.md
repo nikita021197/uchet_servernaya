@@ -1,25 +1,26 @@
 # 🖥️ Учёт оборудования серверной комнаты
 
-Современное веб-приложение для учёта внесения/выноса оборудования в серверной комнате.
+Современное веб-приложение для учёта внесения/выноса оборудования в серверной комнате с серверным хранилищем данных.
 
 ## ✨ Возможности
 
+- **Серверное хранилище**: все данные хранятся в SQLite на сервере, доступны всем пользователям
 - **Учёт оборудования**: внесение и вынос с защитой от дублирования
 - **Сотрудники**: управление списком сотрудников (11 предустановленных)
 - **Импорт/экспорт CSV**: поддержка UTF-8 с BOM для Excel
-- **Статистика**: графики, метрики системы, топ сотрудников
+- **Статистика**: метрики системы, топ сотрудников
 - **Журнал аудита**: полная история всех действий
 - **Адаптивный интерфейс**: тёмная/светлая тема, мобильная версия
 - **Docker**: готов к развертыванию на любом сервере
 
 ## 🚀 Быстрый старт
 
-### Вариант 1: Docker (рекомендуется)
+### Docker (рекомендуется)
 
 ```bash
 # Клонировать репозиторий
-git clone <repository-url>
-cd <project-name>
+git clone https://github.com/nikita021197/uchet_servernaya/
+cd uchet_servernaya
 
 # Скопировать конфигурацию
 cp .env.example .env
@@ -30,16 +31,20 @@ docker compose up -d --build
 # Приложение доступно на http://localhost:4321
 ```
 
-### Вариант 2: Локальная разработка
+### Локальная разработка
 
 ```bash
 # Установить зависимости
 npm install
 
-# Запустить dev-сервер
+# Запустить dev-сервер (frontend)
 npm run dev
 
-# Приложение доступно на http://localhost:5173
+# В другом терминале запустить backend
+node server/index.js
+
+# Frontend: http://localhost:5173
+# Backend API: http://localhost:3001
 ```
 
 ## 📖 Использование
@@ -58,7 +63,7 @@ npm run dev
 
 3. **Импорт данных**
    - Перейдите в "Данные" → "Импорт"
-   - Загрузите CSV файл (формат: инв.номер;сотрудник;дата;...)
+   - Загрузите CSV файл
    - Система покажет отчёт об импорте
 
 4. **Экспорт данных**
@@ -102,22 +107,6 @@ docker compose logs -f
 docker compose restart
 ```
 
-### Использование Makefile
-
-```bash
-# Показать все доступные команды
-make help
-
-# Быстрый старт через Docker
-make docker-quick-start
-
-# Пересобрать и перезапустить
-make docker-rebuild
-
-# Посмотреть статус
-make docker-status
-```
-
 ### Конфигурация
 
 Скопируйте `.env.example` в `.env` и настройте:
@@ -128,9 +117,21 @@ APP_PORT=4321
 
 # Режим работы
 NODE_ENV=production
+```
 
-# Часовой пояс
-TZ=Europe/Moscow
+### Хранение данных
+
+Данные хранятся в SQLite базе данных в Docker volume `app-data`. При пересоздании контейнера данные сохраняются.
+
+**Резервное копирование:**
+```bash
+# Экспорт базы данных
+docker exec server-room-app cp /app/data/app.db /tmp/app.db.backup
+docker cp server-room-app:/tmp/app.db.backup ./backup/app.db
+
+# Импорт базы данных
+docker cp ./backup/app.db server-room-app:/app/data/app.db
+docker compose restart
 ```
 
 ### Обновление приложения
@@ -145,83 +146,91 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
-### Резервное копирование
+## 🛠️ Архитектура
 
-Данные хранятся в `localStorage` браузера. Для резервного копирования:
-
-1. **Экспорт через интерфейс**: страница "Данные" → "Экспорт"
-2. **Ручное копирование**: откройте DevTools → Application → Local Storage
-
-## 🛠️ Разработка
+```
+┌─────────────────┐
+│   Frontend      │  React + TypeScript + Tailwind CSS
+│   (Browser)     │
+└────────┬────────┘
+         │ HTTP API
+         ▼
+┌─────────────────┐
+│   Backend       │  Node.js + Express
+│   (Server)      │
+└────────┬────────┘
+         │ SQL
+         ▼
+┌─────────────────┐
+│   SQLite DB     │  /app/data/app.db
+│   (Storage)     │
+└─────────────────┘
+```
 
 ### Структура проекта
 
 ```
+├── server/
+│   ├── index.js        # Express API сервер
+│   └── db.js           # Работа с SQLite
 ├── src/
-│   ├── App.tsx           # Главный компонент с роутингом
-│   ├── store.ts          # Хранилище данных (localStorage)
-│   ├── types.ts          # TypeScript типы
-│   ├── pages/            # Страницы приложения
-│   │   ├── Dashboard.tsx
-│   │   ├── EquipmentList.tsx
-│   │   ├── EquipmentNew.tsx
-│   │   ├── EquipmentDetail.tsx
-│   │   ├── Employees.tsx
-│   │   ├── DataPage.tsx
-│   │   ├── StatsPage.tsx
-│   │   └── LogsPage.tsx
-│   └── main.tsx          # Точка входа
-├── Dockerfile            # Multi-stage Docker build
-├── docker-compose.yml    # Docker Compose конфигурация
-├── nginx.conf            # Nginx конфигурация
-├── Makefile              # Команды для разработки
-└── README.md             # Документация
+│   ├── App.tsx         # Главный компонент
+│   ├── store.ts        # API клиент
+│   ├── types.ts        # TypeScript типы
+│   └── pages/          # Страницы приложения
+├── Dockerfile          # Multi-stage Docker build
+├── docker-compose.yml  # Docker Compose конфигурация
+└── README.md           # Документация
 ```
 
 ### Технологии
 
-- **React 18** + TypeScript
-- **Vite** - сборщик
-- **Tailwind CSS** - стилизация
-- **React Router** - маршрутизация
-- **Recharts** - графики
-- **date-fns** - работа с датами
-- **Lucide React** - иконки
-- **Nginx** - production сервер
+**Frontend:**
+- React 18 + TypeScript
+- Vite - сборщик
+- Tailwind CSS - стилизация
+- React Router - маршрутизация
+- date-fns - работа с датами
+- Lucide React - иконки
 
-### Локальная разработка
+**Backend:**
+- Node.js + Express
+- better-sqlite3 - SQLite база данных
+- CORS - кросс-доменные запросы
 
-```bash
-# Установить зависимости
-npm install
+**DevOps:**
+- Docker + Docker Compose
+- Multi-stage build
+- Nginx (опционально)
 
-# Запустить dev-сервер
-npm run dev
+## 📊 API Endpoints
 
-# Собрать для production
-npm run build
+### Equipment
+- `GET /api/equipment` - Получить всё оборудование
+- `GET /api/equipment/:id` - Получить оборудование по ID
+- `POST /api/equipment` - Создать оборудование
+- `POST /api/equipment/:id/take` - Вынести оборудование
 
-# Предпросмотр production сборки
-npm run preview
-```
+### Employees
+- `GET /api/employees` - Получить всех сотрудников
+- `POST /api/employees` - Создать сотрудника
+- `PATCH /api/employees/:id` - Обновить сотрудника
 
-## 📊 API и endpoints
+### Audit
+- `GET /api/audit-logs` - Получить журнал аудита
 
-Приложение работает полностью на клиенте, данные хранятся в localStorage.
+### Stats
+- `GET /api/stats` - Получить статистику
 
-### Healthcheck
-
-```bash
-curl http://localhost:4321/health
-# Ответ: healthy
-```
+### Health
+- `GET /health` - Проверка здоровья
 
 ## 🔒 Безопасность
 
 - Валидация всех входных данных
-- Защита от дублирования инвентарных номеров
+- Защита от дублирования инвентарных номеров (partial unique index)
 - Подтверждение опасных действий (вынос оборудования)
-- HTTP security headers в nginx
+- Транзакции в базе данных
 - Ограничение размера загружаемых файлов (5 МБ)
 
 ## 📝 Формат CSV
@@ -270,27 +279,51 @@ docker compose up -d
 
 ### Данные пропали
 
-Данные хранятся в localStorage браузера. Очистка кэша браузера удалит данные. Используйте экспорт для резервного копирования.
+Данные хранятся в Docker volume. Проверьте:
+```bash
+docker volume ls
+docker compose logs
+```
+
+### База данных повреждена
+
+```bash
+# Остановить контейнер
+docker compose down
+
+# Удалить volume (ВНИМАНИЕ: все данные будут удалены!)
+docker volume rm uchet_servernaya_app-data
+
+# Пересобрать и запустить
+docker compose up -d --build
+```
 
 ## 📈 Производительность
 
 - Multi-stage Docker build для минимального размера образа
-- Gzip сжатие в nginx
-- Кэширование статики (1 год)
+- SQLite с WAL режимом для лучшей производительности
+- Индексы на часто запрашиваемых полях
+- Partial unique index для предотвращения дублирования
 - Оптимизированные React компоненты
-- Ленивая загрузка данных
 
 ## 🔄 Обновления
 
-### Версия 1.0.0 (текущая)
+### Версия 2.0.0 (текущая)
 
+- ✅ Серверное хранилище данных (SQLite)
+- ✅ REST API backend
 - ✅ Учёт оборудования
 - ✅ Управление сотрудниками
 - ✅ Импорт/экспорт CSV
-- ✅ Статистика и графики
+- ✅ Статистика
 - ✅ Журнал аудита
 - ✅ Docker поддержка
 - ✅ Адаптивный интерфейс
+
+### Версия 1.0.0
+
+- ✅ Локальное хранилище (localStorage)
+- ✅ Базовый функционал
 
 ## 📄 Лицензия
 
@@ -306,4 +339,4 @@ MIT
 1. Проверьте логи: `docker compose logs -f`
 2. Убедитесь, что порт 4321 свободен
 3. Проверьте статус: `docker compose ps`
-4. Попробуйте пересобрать: `make docker-rebuild`
+4. Попробуйте пересобрать: `docker compose down && docker compose build --no-cache && docker compose up -d`

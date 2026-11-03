@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getEquipment, getStats, getEmployeeName } from '../store';
+import { getEquipment, getStats } from '../store';
 import { Equipment, ThemeMode, Notification } from '../types';
 import { format } from 'date-fns';
 import {
@@ -19,16 +19,38 @@ interface Props {
 }
 
 export default function Dashboard({ theme, addNotification }: Props) {
-  const [stats, setStats] = useState(getStats());
+  const [stats, setStats] = useState<any>(null);
   const [recentEquipment, setRecentEquipment] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const equipment = getEquipment().sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    setRecentEquipment(equipment.slice(0, 10));
-    setStats(getStats());
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [equipment, statsData] = await Promise.all([
+        getEquipment(),
+        getStats()
+      ]);
+      
+      const sorted = equipment.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setRecentEquipment(sorted.slice(0, 10));
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      addNotification('error', 'Ошибка загрузки данных');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading || !stats) {
+    return <div className="text-center py-12">Загрузка...</div>;
+  }
 
   const cardClass = `rounded-xl p-5 ${theme === 'dark' ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200 shadow-sm'}`;
   const statCard = (icon: React.ReactNode, label: string, value: number, color: string) => (
@@ -117,8 +139,8 @@ export default function Dashboard({ theme, addNotification }: Props) {
         <div className={cardClass}>
           <h3 className="font-semibold mb-3">🏆 Топ по внесению</h3>
           <div className="space-y-2">
-            {stats.topBroughtBy.length > 0 ? (
-              stats.topBroughtBy.slice(0, 3).map((item, i) => (
+            {stats.topBroughtBy && stats.topBroughtBy.length > 0 ? (
+              stats.topBroughtBy.slice(0, 3).map((item: any, i: number) => (
                 <div key={i} className="flex justify-between text-sm">
                   <span className="truncate">{item.name}</span>
                   <span className="font-medium ml-2">{item.count}</span>
@@ -181,7 +203,7 @@ export default function Dashboard({ theme, addNotification }: Props) {
                   <tr key={eq.id} className={`${theme === 'dark' ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'} transition-colors`}>
                     <td className="py-2.5">
                       <Link to={`/equipment/${eq.id}`} className="text-blue-500 hover:underline font-medium">
-                        {eq.inventoryNumber}
+                        {eq.inventory_number}
                       </Link>
                     </td>
                     <td className="py-2.5">
@@ -193,11 +215,11 @@ export default function Dashboard({ theme, addNotification }: Props) {
                         {eq.status === 'active' ? 'Активно' : 'Вынесено'}
                       </span>
                     </td>
-                    <td className="py-2.5 hidden sm:table-cell">{getEmployeeName(eq.broughtBy)}</td>
+                    <td className="py-2.5 hidden sm:table-cell">{eq.brought_by_name || 'Неизвестный'}</td>
                     <td className="py-2.5 hidden md:table-cell">
-                      {format(new Date(eq.broughtAt), 'dd.MM.yyyy HH:mm')}
+                      {format(new Date(eq.brought_at), 'dd.MM.yyyy HH:mm')}
                     </td>
-                    <td className="py-2.5 hidden lg:table-cell">{eq.glpiTicket || '—'}</td>
+                    <td className="py-2.5 hidden lg:table-cell">{eq.glpi_ticket || '—'}</td>
                   </tr>
                 ))}
               </tbody>
